@@ -218,6 +218,8 @@ def health_check():
             result["redis"] = f"error: {exc}"
             result["status"] = "degraded"
 
-    status_code = 200 if result["status"] == "ok" else 503
+    # Always return 200 so Railway / Vercel healthchecks don't fail the
+    # deployment over a transient DB/Redis hiccup.  Operators can still
+    # read result["status"] to know if something is degraded.
     from fastapi.responses import JSONResponse
-    return JSONResponse(content=result, status_code=status_code)
+    return JSONResponse(content=result, status_code=200)

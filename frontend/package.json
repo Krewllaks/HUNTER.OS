@@ -16,7 +16,13 @@
     "next": "15.1.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "recharts": "2.14.1"
+    "recharts": "2.15.0"
+  },
+  "overrides": {
+    "recharts": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    }
   },
   "devDependencies": {
     "@types/node": "22.10.2",
