@@ -1,48 +1,41 @@
-# HUNTER.OS Backend — Multi-stage Docker Build
-FROM python:3.12-slim AS base
+# 1. Playwright için özel hazırlanmış resmi imajı kullanıyoruz. 
+# İçinde Python 3.12 ve tüm tarayıcı bağımlılıkları (fontlar dahil) hazır gelir.
+FROM mcr.microsoft.com/playwright/python:v1.49.1-noble AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-# ADDED (Phase 11): Playwright browser cache path. Pinning this
-# guarantees browsers land in a predictable, persistent location
-# so rebuilds don't re-download Chromium.
-ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright
+    PYTHONUNBUFFERED=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/app/.playwright
 
 WORKDIR /app
 
-# Install system dependencies for Playwright
+# Gerekli sistem paketlerini ekle (curl healthcheck için lazım)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Python bağımlılıklarını yükle
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ADDED (Phase 11): Ensure the Playwright browser path exists
-# before installing browsers into it.
+# Playwright tarayıcı klasörünü hazırla
 RUN mkdir -p /app/.playwright
 
-# Install Playwright browsers
-RUN playwright install chromium --with-deps
+# Tarayıcıyı indir. '--with-deps' eklemene gerek yok, 
+# çünkü Microsoft'un bu imajında tüm bağımlılıklar zaten yüklü.
+RUN playwright install chromium
 
-# Copy application code
+# Uygulama kodlarını kopyala
 COPY . .
 
-# ADDED (Phase 11): Production entrypoint — runs alembic
-# migrations before handing off to the CMD below.
+# Entrypoint yetkisini ver ve hazırla
 RUN chmod +x /app/scripts/entrypoint.sh
 
-# Expose port
 EXPOSE 8000
 
-# Health check
+# Senin eklediğin harika healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Entrypoint → migrations → exec CMD
+# Migration'ları yap ve uygulamayı başlat
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
-
-# Run with uvicorn
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
