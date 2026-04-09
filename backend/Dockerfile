@@ -36,6 +36,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Migration'ları yap ve uygulamayı başlat
+# Migration'ları yap ve uygulamayı başlat.
+# CMD shell-form kullanıyoruz ki ${PORT:-8000} Railway tarafından
+# atanan dinamik port env-var'ını expand etsin.
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
