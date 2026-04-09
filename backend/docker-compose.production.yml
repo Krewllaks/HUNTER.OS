@@ -1,0 +1,124 @@
+# ═══════════════════════════════════════════════════════════
+# HUNTER.OS v11 — Production-Close Compose (Phase 11)
+# ───────────────────────────────────────────────────────────
+# NEW: Self-host alternative to Railway. Mirrors the Railway
+# topology: api + worker + beat + redis + postgres.
+#
+# Usage:
+#   docker-compose -f docker-compose.production.yml build
+#   docker-compose -f docker-compose.production.yml up -d
+#
+# Required env vars (export or .env): DATABASE_URL, REDIS_URL,
+# SECRET_KEY, ENCRYPTION_KEY, GEMINI_API_KEY, and any
+# Phase 11 provider keys (SCRAPINGDOG_API_KEY, APOLLO_API_KEY,
+# IPROYAL_USERNAME, IPROYAL_PASSWORD, ...).
+# ═══════════════════════════════════════════════════════════
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SCRAPINGDOG_API_KEY=${SCRAPINGDOG_API_KEY}
+      - APOLLO_API_KEY=${APOLLO_API_KEY}
+      - PDL_API_KEY=${PDL_API_KEY}
+      - IPROYAL_USERNAME=${IPROYAL_USERNAME}
+      - IPROYAL_PASSWORD=${IPROYAL_PASSWORD}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SCRAPINGDOG_API_KEY=${SCRAPINGDOG_API_KEY}
+      - APOLLO_API_KEY=${APOLLO_API_KEY}
+      - PDL_API_KEY=${PDL_API_KEY}
+      - IPROYAL_USERNAME=${IPROYAL_USERNAME}
+      - IPROYAL_PASSWORD=${IPROYAL_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: ["celery", "-A", "app.core.celery_app", "worker", "--loglevel=info"]
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: ["celery", "-A", "app.core.celery_app", "beat", "--loglevel=info"]
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: hunter_os
+      POSTGRES_USER: hunter
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hunterdev2024}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hunter -d hunter_os"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  pgdata:

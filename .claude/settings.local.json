@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/bahti/Desktop/aipoweredsaleshunter -type f -name *.html -o -name *.css -o -name *.js -o -name *.jsx -o -name *.ts -o -name *.tsx -o -name *.vue -o -name *.svelte)",
+      "Bash(find C:UsersbahtiDesktopaipoweredsaleshunter -name *.db -o -name *.sqlite -o -name *.sql)",
+      "Bash(find /c/Users/bahti/Desktop/aipoweredsaleshunter -maxdepth 2 -type f \\\\\\(-name *.md -o -name *.rst -o -name *.txt \\\\\\))",
+      "Bash(find C:UsersbahtiDesktopaipoweredsaleshunter -maxdepth 2 -type f \\\\\\(-name *.json -o -name *.yaml -o -name *.yml -o -name *.toml -o -name Dockerfile -o -name docker-compose* -o -name README* -o -name *.sh \\\\\\))",
+      "Bash(find /c/Users/bahti/Desktop/aipoweredsaleshunter -type f \\\\\\(-name *.test.ts -o -name *.test.tsx -o -name *.spec.ts -o -name *.spec.tsx -o -name *.test.js -o -name *.spec.js \\\\\\))",
+      "Bash(find /c/Users/bahti/Desktop/aipoweredsaleshunter/frontend/src -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(npm install:*)"
+    ]
+  }
+}

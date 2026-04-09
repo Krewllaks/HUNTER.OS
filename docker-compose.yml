@@ -1,0 +1,106 @@
+# HUNTER.OS — Docker Compose
+# Usage: docker-compose up --build
+
+version: "3.9"
+
+services:
+  # ── Backend API ──────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://hunter:hunter_secret@db:5432/hunteros
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-hunter-os-secret-key-change-in-prod}
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - browser_data:/app/browser_data
+    restart: unless-stopped
+
+  # ── Frontend ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://backend:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ── PostgreSQL Database ──────────────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hunter
+      POSTGRES_PASSWORD: hunter_secret
+      POSTGRES_DB: hunteros
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hunter -d hunteros"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Redis (Task Queue + Rate Limiting) ───────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Celery Worker (Background Tasks) ─────────────────
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql://hunter:hunter_secret@db:5432/hunteros
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-hunter-os-secret-key-change-in-prod}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - backend
+      - redis
+    restart: unless-stopped
+
+  # ── Celery Beat (Scheduled Tasks) ────────────────────
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A app.core.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://hunter:hunter_secret@db:5432/hunteros
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  browser_data:

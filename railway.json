@@ -1,0 +1,32 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "services": [
+    {
+      "name": "api",
+      "source": { "project": "." },
+      "root": "backend",
+      "env": {
+        "PORT": "8000",
+        "HOST": "0.0.0.0"
+      },
+      "command": ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
+      "healthcheck": {
+        "path": "/health",
+        "timeout_seconds": 30,
+        "interval_seconds": 60
+      }
+    },
+    {
+      "name": "worker",
+      "source": { "project": "." },
+      "root": "backend",
+      "command": ["celery", "-A", "app.core.celery_app", "worker", "--loglevel=info", "-Q", "celery"]
+    },
+    {
+      "name": "beat",
+      "source": { "project": "." },
+      "root": "backend",
+      "command": ["celery", "-A", "app.core.celery_app", "beat", "--loglevel=info"]
+    }
+  ]
+}

@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280,height=720">
+<title>HUNTER.OS — Workflow Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a1a;
+    --bg2: #12122a;
+    --card: #1a1a35;
+    --card2: #222245;
+    --orange: #f97316;
+    --orange-glow: rgba(249,115,22,0.3);
+    --green: #22c55e;
+    --blue: #3b82f6;
+    --cyan: #06b6d4;
+    --purple: #8b5cf6;
+    --red: #ef4444;
+    --white: #ffffff;
+    --gray: #94a3b8;
+    --gray2: #64748b;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--white);
+    overflow: hidden;
+    width: 1280px;
+    height: 720px;
+    position: relative;
+  }
+
+  /* ── Canvas ── */
+  #canvas {
+    width: 1280px;
+    height: 720px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Ambient Background ── */
+  .ambient {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .ambient-1 { width: 500px; height: 500px; background: var(--orange); top: -150px; right: -100px; animation: float1 8s ease-in-out infinite; }
+  .ambient-2 { width: 400px; height: 400px; background: var(--purple); bottom: -100px; left: -80px; animation: float2 10s ease-in-out infinite; }
+  .ambient-3 { width: 300px; height: 300px; background: var(--cyan); top: 50%; left: 50%; transform: translate(-50%,-50%); animation: float3 12s ease-in-out infinite; opacity: 0.08; }
+
+  @keyframes float1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-30px, 20px); } }
+  @keyframes float2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(20px, -30px); } }
+  @keyframes float3 { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.2); } }
+
+  /* ── Scene System ── */
+  .scene {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .scene.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .scene.exit {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+
+  /* ── Top Bar ── */
+  #topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    z-index: 10;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    background: rgba(10,10,26,0.8);
+    backdrop-filter: blur(20px);
+  }
+  .logo { font-weight: 900; font-size: 18px; color: var(--orange); letter-spacing: 1px; }
+  .logo span { color: var(--gray); font-weight: 400; font-size: 12px; margin-left: 8px; letter-spacing: 3px; }
+
+  /* ── Progress Bar ── */
+  #progress-bar {
+    position: absolute;
+    top: 56px; left: 0; right: 0;
+    height: 3px;
+    background: rgba(255,255,255,0.05);
+    z-index: 10;
+  }
+  #progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--orange), #fb923c);
+    width: 0%;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px var(--orange-glow);
+  }
+
+  /* ── Step Indicator ── */
+  #steps-indicator {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
+  .step-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--gray2);
+    transition: all 0.4s ease;
+  }
+  .step-dot.active {
+    background: var(--orange);
+    box-shadow: 0 0 10px var(--orange-glow);
+    width: 24px;
+    border-radius: 4px;
+  }
+  .step-dot.done { background: var(--green); }
+
+  /* ── Controls ── */
+  #controls {
+    position: absolute;
+    bottom: 25px;
+    right: 40px;
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+  }
+  .ctrl-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    color: var(--white);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .ctrl-btn:hover { background: var(--orange); border-color: var(--orange); }
+
+  /* ── Typography ── */
+  .scene-label {
+    font-size: 12px;
+    letter-spacing: 4px;
+    color: var(--orange);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .scene-title {
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1.1;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .scene-subtitle {
+    font-size: 18px;
+    color: var(--gray);
+    text-align: center;
+    max-width: 700px;
+    line-height: 1.6;
+  }
+  .highlight { color: var(--orange); }
+
+  /* ── Animations ── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeInLeft {
+    from { opacity: 0; transform: translateX(-30px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes fadeInRight {
+    from { opacity: 0; transform: translateX(30px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  @keyframes typing { from { width: 0; } to { width: 100%; } }
+  @keyframes blink { 0%,100% { border-color: var(--orange); } 50% { border-color: transparent; } }
+  @keyframes slideRight { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+  @keyframes ripple { 0% { transform: scale(0); opacity: 1; } 100% { transform: scale(4); opacity: 0; } }
+  @keyframes scanline { 0% { top: 0; } 100% { top: 100%; } }
+
+  .anim-delay-1 { animation-delay: 0.2s !important; }
+  .anim-delay-2 { animation-delay: 0.4s !important; }
+  .anim-delay-3 { animation-delay: 0.6s !important; }
+  .anim-delay-4 { animation-delay: 0.8s !important; }
+  .anim-delay-5 { animation-delay: 1.0s !important; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--orange), transparent);
+  }
+
+  /* ── Scene: Intro ── */
+  #scene-intro .big-logo {
+    font-size: 72px;
+    font-weight: 900;
+    color: var(--orange);
+    letter-spacing: 4px;
+    animation: scaleIn 1s ease forwards;
+    text-shadow: 0 0 40px var(--orange-glow);
+  }
+  #scene-intro .tagline {
+    font-size: 20px;
+    color: var(--gray);
+    margin-top: 16px;
+    animation: fadeInUp 1s 0.5s ease both;
+  }
+
+  /* ── Scene: Product Input ── */
+  .input-mockup {
+    width: 700px;
+    background: var(--card);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    animation: scaleIn 0.6s ease both;
+  }
+  .input-header {
+    padding: 16px 20px;
+    background: var(--bg2);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .input-header .dots { display: flex; gap: 6px; }
+  .input-header .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .input-body { padding: 24px; }
+  .input-label { font-size: 12px; color: var(--gray); margin-bottom: 8px; letter-spacing: 1px; }
+  .typing-text {
+    font-size: 16px;
+    color: var(--white);
+    border-right: 2px solid var(--orange);
+    white-space: nowrap;
+    overflow: hidden;
+    width: 0;
+    animation: blink 0.8s infinite;
+    line-height: 1.8;
+  }
+  .typing-text.typing { animation: typing 3s steps(60) forwards, blink 0.8s infinite; }
+
+  /* ── Scene: AI Analysis ── */
+  .analysis-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 800px;
+  }
+  .analysis-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.06);
+    opacity: 0;
+  }
+  .analysis-card.show {
+    animation: fadeInUp 0.5s ease forwards;
+  }
+  .analysis-card h3 {
+    font-size: 13px;
+    color: var(--orange);
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .analysis-card h3 .icon-circle {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(249,115,22,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .analysis-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 13px;
+  }
+  .analysis-item span:first-child { color: var(--gray); }
+  .analysis-item span:last-child { color: var(--white); font-weight: 500; }
+
+  /* ── Scene: Discovery ── */
+  .discovery-container {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+    width: 1000px;
+  }
+  .search-panel {
+    flex: 1;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .search-query {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--gray);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  .search-query.show {
+    animation: fadeInLeft 0.4s ease forwards;
+  }
+  .search-query .q-icon { color: var(--orange); }
+  .search-query.processing { border-left: 2px solid var(--orange); }
+  .search-query.done { border-left: 2px solid var(--green); }
+  .search-query.done .q-icon { color: var(--green); }
+
+  .leads-panel {
+    width: 350px;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .lead-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    opacity: 0;
+  }
+  .lead-item.show { animation: fadeInRight 0.4s ease forwards; }
+  .lead-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--orange), var(--purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .lead-info { flex: 1; }
+  .lead-name { font-size: 13px; font-weight: 600; }
+  .lead-company { font-size: 11px; color: var(--gray); }
+  .lead-score {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(34,197,94,0.15);
+    color: var(--green);
+  }
+
+  /* ── Scene: Footprint Analysis ── */
+  .footprint-container {
+    display: flex;
+    gap: 24px;
+    width: 1000px;
+  }
+  .profile-card {
+    width: 280px;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid rgba(255,255,255,0.06);
+    text-align: center;
+    animation: fadeInLeft 0.6s ease both;
+  }
+  .profile-avatar {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--orange), var(--purple));
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 700;
+  }
+  .profile-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .profile-title { font-size: 12px; color: var(--gray); margin-bottom: 16px; }
+  .profile-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    font-size: 12px;
+  }
+  .profile-stat span:first-child { color: var(--gray); }
+  .profile-stat span:last-child { font-weight: 600; }
+
+  .signals-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .signal-card {
+    background: var(--bg2);
+    border-radius: 8px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,0.04);
+    opacity: 0;
+  }
+  .signal-card.show { animation: fadeInUp 0.4s ease forwards; }
+  .signal-label { font-size: 10px; color: var(--gray); letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase; }
+  .signal-value { font-size: 13px; font-weight: 500; line-height: 1.5; }
+  .signal-bar {
+    height: 3px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .signal-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    width: 0;
+    transition: width 1s ease;
+  }
+
+  /* ── Scene: Message ── */
+  .message-container {
+    display: flex;
+    gap: 30px;
+    width: 1000px;
+    align-items: flex-start;
+  }
+  .email-mockup {
+    flex: 1;
+    background: var(--card);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+    animation: fadeInLeft 0.6s ease both;
+  }
+  .email-header {
+    padding: 16px 20px;
+    background: var(--bg2);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .email-field { font-size: 12px; color: var(--gray); margin-bottom: 4px; }
+  .email-field strong { color: var(--white); }
+  .email-body {
+    padding: 20px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--gray);
+  }
+  .email-body .personalized {
+    background: rgba(249,115,22,0.15);
+    color: var(--orange);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .email-body p { margin-bottom: 12px; }
+
+  .annotations {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .annotation {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 14px;
+    border-left: 3px solid var(--orange);
+    opacity: 0;
+  }
+  .annotation.show { animation: fadeInRight 0.4s ease forwards; }
+  .annotation-title { font-size: 11px; color: var(--orange); font-weight: 600; margin-bottom: 4px; }
+  .annotation-desc { font-size: 11px; color: var(--gray); line-height: 1.5; }
+
+  /* ── Scene: Auto-Stop ── */
+  .sentiment-container { width: 800px; }
+  .sentiment-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: var(--card);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    opacity: 0;
+    border-left: 3px solid transparent;
+  }
+  .sentiment-row.show { animation: fadeInUp 0.4s ease forwards; }
+  .sentiment-emoji { font-size: 24px; width: 40px; text-align: center; }
+  .sentiment-label { font-weight: 600; font-size: 14px; width: 100px; }
+  .sentiment-example { flex: 1; font-size: 12px; color: var(--gray); font-style: italic; }
+  .sentiment-action { font-size: 12px; font-weight: 600; text-align: right; width: 160px; }
+
+  /* ── Scene: Dashboard ── */
+  .dashboard-mockup {
+    width: 1000px;
+    background: var(--card);
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+    animation: scaleIn 0.6s ease both;
+  }
+  .dash-header {
+    padding: 16px 24px;
+    background: var(--bg2);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .dash-title { font-weight: 700; font-size: 16px; }
+  .dash-status { font-size: 11px; color: var(--green); display: flex; align-items: center; gap: 6px; }
+  .dash-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .dash-body { padding: 24px; }
+  .kpi-row { display: flex; gap: 16px; margin-bottom: 20px; }
+  .kpi-card {
+    flex: 1;
+    background: var(--bg2);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .kpi-value { font-size: 28px; font-weight: 800; }
+  .kpi-label { font-size: 10px; color: var(--gray); margin-top: 4px; letter-spacing: 1px; text-transform: uppercase; }
+  .kpi-value.count-up {
+    transition: all 0.5s ease;
+  }
+
+  .funnel-row { display: flex; gap: 4px; align-items: flex-end; height: 80px; }
+  .funnel-bar {
+    flex: 1;
+    background: var(--orange);
+    border-radius: 4px 4px 0 0;
+    transition: height 1s ease;
+    height: 0;
+    position: relative;
+  }
+  .funnel-bar-label {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: var(--gray);
+    white-space: nowrap;
+  }
+
+  /* ── Scene: CTA ── */
+  #scene-cta .cta-btn {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--orange), #ea580c);
+    color: white;
+    padding: 16px 48px;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    margin-top: 24px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px var(--orange-glow);
+    animation: fadeInUp 0.6s 0.8s ease both;
+  }
+  #scene-cta .cta-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px var(--orange-glow);
+  }
+
+  /* ── Particle effect ── */
+  .particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .particle {
+    position: absolute;
+    width: 2px; height: 2px;
+    background: var(--orange);
+    border-radius: 50%;
+    opacity: 0;
+    animation: particleFloat 4s ease-in-out infinite;
+  }
+  @keyframes particleFloat {
+    0% { opacity: 0; transform: translateY(0); }
+    20% { opacity: 0.6; }
+    80% { opacity: 0.6; }
+    100% { opacity: 0; transform: translateY(-100px); }
+  }
+
+  /* ── Scan line effect ── */
+  .scan-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--orange-glow), transparent);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .scan-line.active {
+    opacity: 1;
+    animation: scanline 2s linear;
+  }
+
+  /* ── Counter animation ── */
+  .counter { display: inline-block; }
+</style>
+</head>
+<body>
+
+<div id="canvas">
+  <!-- Ambient Background -->
+  <div class="ambient ambient-1"></div>
+  <div class="ambient ambient-2"></div>
+  <div class="ambient ambient-3"></div>
+
+  <!-- Particles -->
+  <div class="particles" id="particles"></div>
+
+  <!-- Top Bar -->
+  <div id="topbar">
+    <div class="logo">HUNTER.OS <span>PRECISION GROWTH</span></div>
+    <div style="font-size:12px;color:var(--gray)">Workflow Demo</div>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress-bar"><div id="progress-fill"></div></div>
+
+  <!-- ═══ SCENE 0: INTRO ═══ -->
+  <div class="scene active" id="scene-intro">
+    <div class="big-logo">HUNTER.OS</div>
+    <div class="tagline">Hic Uyumayan Dijital Satis Avciniz</div>
+    <div style="margin-top:40px;font-size:13px;color:var(--gray2);animation:fadeInUp 1s 1s ease both">
+      Nasil calistigini izleyin &nbsp;
+      <span style="color:var(--orange)">&#9654;</span>
+    </div>
+  </div>
+
+  <!-- ═══ SCENE 1: PRODUCT INPUT ═══ -->
+  <div class="scene" id="scene-product">
+    <div class="scene-label" style="align-self:center">ADIM 1</div>
+    <div class="scene-title" style="font-size:36px;margin-bottom:24px">Urununu Anlat</div>
+    <div class="input-mockup">
+      <div class="input-header">
+        <div class="dots">
+          <div class="dot" style="background:var(--red)"></div>
+          <div class="dot" style="background:#fbbf24"></div>
+          <div class="dot" style="background:var(--green)"></div>
+        </div>
+        <span style="font-size:12px;color:var(--gray);margin-left:12px">hunter.os/onboarding</span>
+      </div>
+      <div class="input-body">
+        <div class="input-label">URUN TANIMI</div>
+        <div class="typing-text" id="typing-product">
+          Dijital pazarlama ajanslarina AI destekli musteri bulma ve otomatik satis yazilimi sunuyoruz. Hedef kitlemiz 5-30 kisilik ajanslar.
+        </div>
+        <div style="margin-top:20px;display:flex;gap:12px;opacity:0" id="product-btn-row">
+          <div style="background:var(--orange);color:white;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+            &#10024; AI ile Analiz Et
+          </div>
+          <div style="background:var(--bg);color:var(--gray);padding:10px 24px;border-radius:8px;font-size:13px">
+            veya ornek sec...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCENE 2: AI ANALYSIS ═══ -->
+  <div class="scene" id="scene-analysis">
+    <div class="scene-label">ADIM 1.5 — AI ANALIZ</div>
+    <div class="scene-title" style="font-size:32px;margin-bottom:24px">Gemini 2.0 Flash Analiz Ediyor</div>
+    <div class="analysis-grid">
+      <div class="analysis-card" id="ac1">
+        <h3><span class="icon-circle">&#127919;</span> IDEAL MUSTERI PROFILI (ICP)</h3>
+        <div class="analysis-item"><span>Sektor</span><span>Dijital Pazarlama Ajanslari</span></div>
+        <div class="analysis-item"><span>Sirket Buyuklugu</span><span>5-30 kisi</span></div>
+        <div class="analysis-item"><span>Karar Verici</span><span>CEO, CMO, Growth Lead</span></div>
+        <div class="analysis-item"><span>Lokasyon</span><span>TR, US, EU</span></div>
+      </div>
+      <div class="analysis-card" id="ac2">
+        <h3><span class="icon-circle">&#128269;</span> ARAMA STRATEJILERI</h3>
+        <div class="analysis-item"><span>Query 1</span><span>"digital marketing agency CEO"</span></div>
+        <div class="analysis-item"><span>Query 2</span><span>"growth hacking ajans kurucu"</span></div>
+        <div class="analysis-item"><span>Query 3</span><span>"pazarlama ajans yonetici"</span></div>
+        <div class="analysis-item"><span>Query 4</span><span>"B2B SaaS marketing lead"</span></div>
+      </div>
+      <div class="analysis-card" id="ac3">
+        <h3><span class="icon-circle">&#128161;</span> AGRI NOKTALARI</h3>
+        <div class="analysis-item"><span>1</span><span>Manuel lead bulma sureci yavas</span></div>
+        <div class="analysis-item"><span>2</span><span>Kisisellestirilmemis outreach</span></div>
+        <div class="analysis-item"><span>3</span><span>SDR maliyetleri yuksek</span></div>
+        <div class="analysis-item"><span>4</span><span>Follow-up takibi zor</span></div>
+      </div>
+      <div class="analysis-card" id="ac4">
+        <h3><span class="icon-circle">&#128640;</span> DEGER ONERISI</h3>
+        <div class="analysis-item"><span>Hook</span><span>%98 maliyet tasarrufu</span></div>
+        <div class="analysis-item"><span>Proof</span><span>500+ lead/gun kapasitesi</span></div>
+        <div class="analysis-item"><span>CTA</span><span>15 dk demo davet</span></div>
+        <div class="analysis-item"><span>Ton</span><span>Profesyonel ama samimi</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCENE 3: DISCOVERY ═══ -->
+  <div class="scene" id="scene-discovery">
+    <div class="scene-label">ADIM 2 — OTONOM KESIF</div>
+    <div class="scene-title" style="font-size:32px;margin-bottom:20px">AI Interneti Tariyor</div>
+    <div class="discovery-container">
+      <div class="search-panel">
+        <div style="font-size:12px;color:var(--gray);margin-bottom:12px;letter-spacing:1px">ARAMA SORGULARI</div>
+        <div class="search-query" id="sq1"><span class="q-icon">&#9679;</span> "digital marketing agency CEO" site:linkedin.com</div>
+        <div class="search-query" id="sq2"><span class="q-icon">&#9679;</span> "growth hacking" + "ajans kurucu" inurl:about</div>
+        <div class="search-query" id="sq3"><span class="q-icon">&#9679;</span> "pazarlama muduru" + "dijital ajans" -job</div>
+        <div class="search-query" id="sq4"><span class="q-icon">&#9679;</span> "B2B SaaS" + "marketing lead" site:twitter.com</div>
+        <div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between;align-items:center;opacity:0" id="search-stats">
+          <span style="font-size:12px;color:var(--gray)">Bulunan Sonuc</span>
+          <span style="font-size:20px;font-weight:800;color:var(--orange)" id="result-counter">0</span>
+        </div>
+      </div>
+      <div class="leads-panel">
+        <div style="font-size:12px;color:var(--gray);margin-bottom:12px;letter-spacing:1px">BULUNAN LEAD'LER</div>
+        <div class="lead-item" id="li1">
+          <div class="lead-avatar">AY</div>
+          <div class="lead-info"><div class="lead-name">Ahmet Yilmaz</div><div class="lead-company">GrowthLab Agency</div></div>
+          <div class="lead-score">92</div>
+        </div>
+        <div class="lead-item" id="li2">
+          <div class="lead-avatar">SK</div>
+          <div class="lead-info"><div class="lead-name">Selin Kaya</div><div class="lead-company">PixelForge Digital</div></div>
+          <div class="lead-score">87</div>
+        </div>
+        <div class="lead-item" id="li3">
+          <div class="lead-avatar">OD</div>
+          <div class="lead-info"><div class="lead-name">Onur Demir</div><div class="lead-company">NexWave Marketing</div></div>
+          <div class="lead-score">84</div>
+        </div>
+        <div class="lead-item" id="li4">
+          <div class="lead-avatar">EC</div>
+          <div class="lead-info"><div class="lead-name">Elif Celik</div><div class="lead-company">BrightPath Co.</div></div>
+          <div class="lead-score">79</div>
+        </div>
+        <div class="lead-item" id="li5">
+          <div class="lead-avatar">BT</div>
+          <div class="lead-info"><div class="lead-name">Baris Turk</div><div class="lead-company">AdPulse Agency</div></div>
+          <div class="lead-score">76</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCENE 4: FOOTPRINT ═══ -->
+  <div class="scene" id="scene-footprint">
+    <div class="scene-label">ADIM 3 — DIJITAL AYAK IZI</div>
+    <div class="scene-title" style="font-size:32px;margin-bottom:20px">6 Katmanli Profil Analizi</div>
+    <div class="footprint-container">
+      <div class="profile-card">
+        <div class="profile-avatar">AY</div>
+        <div class="profile-name">Ahmet Yilmaz</div>
+        <div class="profile-title">CEO @ GrowthLab Agency</div>
+        <div class="profile-stat"><span>Intent Score</span><span style="color:var(--green)">92/100</span></div>
+        <div class="profile-stat"><span>ICP Match</span><span style="color:var(--orange)">95%</span></div>
+        <div class="profile-stat"><span>Confidence</span><span style="color:var(--cyan)">88%</span></div>
+      </div>
+      <div class="signals-grid">
+        <div class="signal-card" id="sig1">
+          <div class="signal-label">Son Paylasimlar</div>
+          <div class="signal-value">"B2B icin Growth Hacking" makalesi — 2 gun once</div>
+          <div class="signal-bar"><div class="signal-bar-fill" style="background:var(--orange)" data-width="85%"></div></div>
+        </div>
+        <div class="signal-card" id="sig2">
+          <div class="signal-label">Teknoloji Yigini</div>
+          <div class="signal-value">HubSpot, Google Ads, Slack, Notion kullanıyor</div>
+          <div class="signal-bar"><div class="signal-bar-fill" style="background:var(--blue)" data-width="70%"></div></div>
+        </div>
+        <div class="signal-card" id="sig3">
+          <div class="signal-label">Ise Alim Sinyalleri</div>
+          <div class="signal-value">2 SDR pozisyonu acik — lead gen ihtiyaci yuksek</div>
+          <div class="signal-bar"><div class="signal-bar-fill" style="background:var(--green)" data-width="95%"></div></div>
+        </div>
+        <div class="signal-card" id="sig4">
+          <div class="signal-label">Sosyal Etkilesim</div>
+          <div class="signal-value">SaaS & marketing konularinda aktif, 3K+ takipci</div>
+          <div class="signal-bar"><div class="signal-bar-fill" style="background:var(--purple)" data-width="75%"></div></div>
+        </div>
+        <div class="signal-card" id="sig5">
+          <div class="signal-label">Zamanlama</div>
+          <div class="signal-value">Sali-Persembe 10:00-12:00 aktif</div>
+          <div class="signal-bar"><div class="signal-bar-fill" style="background:var(--cyan)" data-width="60%"></div></div>
+        </div>
+        <div class="signal-card" id="sig6">
+          <div class="signal-label">Kisilik Profili</div>
+          <div class="signal-value">Data-driven, sonuc odakli, kisa mesaj sever</div>
+          <div class="signal-bar"><div class="signal-bar-fill" style="background:var(--red)" data-width="80%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCENE 5: MESSAGE ═══ -->
+  <div class="scene" id="scene-message">
+    <div class="scene-label">ADIM 4 — KISISELLESMIS MESAJ</div>
+    <div class="scene-title" style="font-size:32px;margin-bottom:20px">AI Mesaj Uretiyor</div>
+    <div class="message-container">
+      <div class="email-mockup">
+        <div class="email-header">
+          <div class="email-field"><strong>Kime:</strong> ahmet@growthlab.agency</div>
+          <div class="email-field"><strong>Konu:</strong> Growth Hacking yaklasiminiz hakkinda bir fikrim var</div>
+        </div>
+        <div class="email-body" id="email-body">
+          <p>Merhaba <span class="personalized">Ahmet Bey</span>,</p>
+          <p>LinkedIn'deki <span class="personalized">"B2B SaaS icin Growth Hacking"</span> yazisinizi okudum — ozellikle <span class="personalized">PLG stratejisi</span> konusundaki yaklasimiz cok dikkat cekiciydi.</p>
+          <p><span class="personalized">GrowthLab</span> gibi <span class="personalized">hizla buyuyen ajanslarin</span> en buyuk sorunun lead generation oldugunu biliyorum. HUNTER.OS tam bu problemi cozuyor: AI destekli otonom musteri bulma.</p>
+          <p>15 dakikalik bir demo icin musait misiniz?</p>
+          <p style="color:var(--gray2)">Saygilarimla,<br>HUNTER.OS Team</p>
+        </div>
+      </div>
+      <div class="annotations">
+        <div class="annotation" id="ann1">
+          <div class="annotation-title">&#127919; Kisi Referansi</div>
+          <div class="annotation-desc">Lead'in gercek ismi ve unvani kullanildi</div>
+        </div>
+        <div class="annotation" id="ann2">
+          <div class="annotation-title">&#128196; Icerik Referansi</div>
+          <div class="annotation-desc">LinkedIn paylasimina dogrudan atif yapildi</div>
+        </div>
+        <div class="annotation" id="ann3">
+          <div class="annotation-title">&#127970; Sirket Analizi</div>
+          <div class="annotation-desc">Sirketin buyume sinyalleri mesaja yansitildi</div>
+        </div>
+        <div class="annotation" id="ann4">
+          <div class="annotation-title">&#128171; Agri Noktasi</div>
+          <div class="annotation-desc">Sektore ozel problem tespit edildi</div>
+        </div>
+        <div class="annotation" id="ann5">
+          <div class="annotation-title">&#128386; Kanal Secimi</div>
+          <div class="annotation-desc">Email + LinkedIn DM paralel ulasim</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCENE 6: AUTO-STOP ═══ -->
+  <div class="scene" id="scene-autostop">
+    <div class="scene-label">ADIM 5 — AKILLI TAKIP</div>
+    <div class="scene-title" style="font-size:32px;margin-bottom:20px">Cevap Gelince Otomasyon Durur</div>
+    <div class="sentiment-container">
+      <div class="sentiment-row" id="sr1" style="border-color:var(--green)">
+        <div class="sentiment-emoji">&#9989;</div>
+        <div class="sentiment-label" style="color:var(--green)">Ilgili</div>
+        <div class="sentiment-example">"Evet, demo gormek isterim"</div>
+        <div class="sentiment-action" style="color:var(--green)">&#8594; Toplanti Planla</div>
+      </div>
+      <div class="sentiment-row" id="sr2" style="border-color:var(--red)">
+        <div class="sentiment-emoji">&#10060;</div>
+        <div class="sentiment-label" style="color:var(--red)">Ilgisiz</div>
+        <div class="sentiment-example">"Su an ihtiyacimiz yok"</div>
+        <div class="sentiment-action" style="color:var(--red)">&#8594; 90 Gun Sonra</div>
+      </div>
+      <div class="sentiment-row" id="sr3" style="border-color:var(--blue)">
+        <div class="sentiment-emoji">&#128197;</div>
+        <div class="sentiment-label" style="color:var(--blue)">Toplanti</div>
+        <div class="sentiment-example">"Sali 14:00 uyar"</div>
+        <div class="sentiment-action" style="color:var(--blue)">&#8594; Takvime Ekle</div>
+      </div>
+      <div class="sentiment-row" id="sr4" style="border-color:var(--purple)">
+        <div class="sentiment-emoji">&#10067;</div>
+        <div class="sentiment-label" style="color:var(--purple)">Soru</div>
+        <div class="sentiment-example">"Fiyatlariniz nedir?"</div>
+        <div class="sentiment-action" style="color:var(--purple)">&#8594; Otomatik Cevap</div>
+      </div>
+      <div class="sentiment-row" id="sr5" style="border-color:var(--orange)">
+        <div class="sentiment-emoji">&#128737;</div>
+        <div class="sentiment-label" style="color:var(--orange)">Itiraz</div>
+        <div class="sentiment-example">"Butcemiz sinirli"</div>
+        <div class="sentiment-action" style="color:var(--orange)">&#8594; Objection Handling</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCENE 7: DASHBOARD ═══ -->
+  <div class="scene" id="scene-dashboard">
+    <div class="scene-label">KONTROL PANELI</div>
+    <div class="scene-title" style="font-size:32px;margin-bottom:20px">Hassas Panel — Her Sey Kontrol Altinda</div>
+    <div class="dashboard-mockup">
+      <div class="dash-header">
+        <div class="dash-title">&#128200; Hassas Panel</div>
+        <div class="dash-status">Sistem Aktif</div>
+      </div>
+      <div class="dash-body">
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-value" style="color:var(--white)"><span class="counter" data-target="142">0</span></div>
+            <div class="kpi-label">Toplam Lead</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" style="color:var(--green)"><span class="counter" data-target="89">0</span>%</div>
+            <div class="kpi-label">Reply Rate</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" style="color:var(--orange)">$<span class="counter" data-target="12">0</span></div>
+            <div class="kpi-label">Lead Maliyeti</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" style="color:var(--cyan)"><span class="counter" data-target="24">0</span>/7</div>
+            <div class="kpi-label">Calisma Saati</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px">
+          <div style="flex:1">
+            <div style="font-size:10px;color:var(--gray);letter-spacing:1px;margin-bottom:8px">DONUSUM HUNISI</div>
+            <div class="funnel-row">
+              <div class="funnel-bar" data-height="100%" style="opacity:0.3"><div class="funnel-bar-label">Kesif</div></div>
+              <div class="funnel-bar" data-height="70%" style="opacity:0.5"><div class="funnel-bar-label">Arastirma</div></div>
+              <div class="funnel-bar" data-height="45%" style="opacity:0.7"><div class="funnel-bar-label">Ulasim</div></div>
+              <div class="funnel-bar" data-height="25%" style="background:var(--green)"><div class="funnel-bar-label">Cevap</div></div>
+            </div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:10px;color:var(--gray);letter-spacing:1px;margin-bottom:8px">BUYUME TRENDI</div>
+            <div class="funnel-row" id="growth-bars"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCENE 8: CTA ═══ -->
+  <div class="scene" id="scene-cta">
+    <div style="font-size:64px;font-weight:900;color:var(--orange);animation:scaleIn 0.6s ease both;text-shadow:0 0 40px var(--orange-glow)">HUNTER.OS</div>
+    <div class="scene-title" style="font-size:36px;margin-top:8px;animation:fadeInUp 0.6s 0.3s ease both">Hemen Baslayin</div>
+    <div class="scene-subtitle" style="animation:fadeInUp 0.6s 0.5s ease both">Ucretsiz deneyin. Kredi karti gerekmez.<br>14 gun boyunca tum ozelliklere erisin.</div>
+    <div class="cta-btn">Ucretsiz Dene &#8594;</div>
+    <div style="margin-top:24px;font-size:12px;color:var(--gray2);animation:fadeInUp 0.6s 1s ease both">
+      hunter.os &nbsp;&bull;&nbsp; info@hunter.os
+    </div>
+  </div>
+
+  <!-- Step Indicator -->
+  <div id="steps-indicator"></div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <div class="ctrl-btn" onclick="prevScene()" title="Onceki">&#9664;</div>
+    <div class="ctrl-btn" id="play-btn" onclick="togglePlay()" title="Durdur/Baslat">&#10074;&#10074;</div>
+    <div class="ctrl-btn" onclick="nextScene()" title="Sonraki">&#9654;</div>
+  </div>
+</div>
+
+<script>
+// ── Scene Management ──────────────────────────────────
+const scenes = [
+  'scene-intro', 'scene-product', 'scene-analysis', 'scene-discovery',
+  'scene-footprint', 'scene-message', 'scene-autostop', 'scene-dashboard', 'scene-cta'
+];
+let currentScene = 0;
+let isPlaying = true;
+let autoTimer = null;
+
+// Scene durations (ms)
+const durations = [3500, 5500, 5000, 7000, 6000, 6000, 5500, 6000, 5000];
+
+// Create dots
+const dotsContainer = document.getElementById('steps-indicator');
+scenes.forEach((_, i) => {
+  const dot = document.createElement('div');
+  dot.className = 'step-dot' + (i === 0 ? ' active' : '');
+  dot.onclick = () => goToScene(i);
+  dot.style.cursor = 'pointer';
+  dotsContainer.appendChild(dot);
+});
+
+// Create growth bars
+const growthBars = document.getElementById('growth-bars');
+[30,40,35,50,45,55,48,60,55,65,58,72].forEach(h => {
+  const bar = document.createElement('div');
+  bar.className = 'funnel-bar';
+  bar.dataset.height = h + '%';
+  growthBars.appendChild(bar);
+});
+
+// Create particles
+const particlesContainer = document.getElementById('particles');
+for (let i = 0; i < 30; i++) {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.style.left = Math.random() * 100 + '%';
+  p.style.top = Math.random() * 100 + '%';
+  p.style.animationDelay = Math.random() * 4 + 's';
+  p.style.animationDuration = (3 + Math.random() * 3) + 's';
+  particlesContainer.appendChild(p);
+}
+
+function updateProgress() {
+  const pct = ((currentScene + 1) / scenes.length) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function updateDots() {
+  document.querySelectorAll('.step-dot').forEach((dot, i) => {
+    dot.className = 'step-dot';
+    if (i < currentScene) dot.classList.add('done');
+    if (i === currentScene) dot.classList.add('active');
+  });
+}
+
+function goToScene(index) {
+  if (index === currentScene) return;
+  const prev = document.getElementById(scenes[currentScene]);
+  prev.classList.remove('active');
+  prev.classList.add('exit');
+
+  currentScene = index;
+  updateProgress();
+  updateDots();
+
+  setTimeout(() => {
+    prev.classList.remove('exit');
+    const next = document.getElementById(scenes[currentScene]);
+    next.classList.add('active');
+    runSceneAnimations(currentScene);
+  }, 400);
+
+  resetAutoPlay();
+}
+
+function nextScene() {
+  if (currentScene < scenes.length - 1) goToScene(currentScene + 1);
+  else goToScene(0);
+}
+
+function prevScene() {
+  if (currentScene > 0) goToScene(currentScene - 1);
+}
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  document.getElementById('play-btn').innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9654;';
+  if (isPlaying) resetAutoPlay();
+  else clearTimeout(autoTimer);
+}
+
+function resetAutoPlay() {
+  clearTimeout(autoTimer);
+  if (isPlaying) {
+    autoTimer = setTimeout(() => {
+      if (currentScene < scenes.length - 1) nextScene();
+      else { isPlaying = false; document.getElementById('play-btn').innerHTML = '&#9654;'; }
+    }, durations[currentScene]);
+  }
+}
+
+// ── Scene-specific Animations ─────────────────────────
+function runSceneAnimations(idx) {
+  switch(idx) {
+    case 1: animateProduct(); break;
+    case 2: animateAnalysis(); break;
+    case 3: animateDiscovery(); break;
+    case 4: animateFootprint(); break;
+    case 5: animateMessage(); break;
+    case 6: animateAutoStop(); break;
+    case 7: animateDashboard(); break;
+  }
+}
+
+function animateProduct() {
+  const el = document.getElementById('typing-product');
+  el.style.width = '0';
+  el.classList.remove('typing');
+  void el.offsetWidth;
+  el.classList.add('typing');
+
+  const btn = document.getElementById('product-btn-row');
+  btn.style.opacity = '0';
+  setTimeout(() => {
+    btn.style.transition = 'opacity 0.5s';
+    btn.style.opacity = '1';
+  }, 3200);
+}
+
+function animateAnalysis() {
+  ['ac1','ac2','ac3','ac4'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('show');
+    void el.offsetWidth;
+    setTimeout(() => el.classList.add('show'), i * 400);
+  });
+}
+
+function animateDiscovery() {
+  // Reset
+  ['sq1','sq2','sq3','sq4'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('show','processing','done');
+  });
+  ['li1','li2','li3','li4','li5'].forEach(id => {
+    document.getElementById(id).classList.remove('show');
+  });
+  document.getElementById('search-stats').style.opacity = '0';
+  document.getElementById('result-counter').textContent = '0';
+
+  // Animate queries
+  ['sq1','sq2','sq3','sq4'].forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      el.classList.add('show', 'processing');
+      setTimeout(() => {
+        el.classList.remove('processing');
+        el.classList.add('done');
+      }, 800);
+    }, i * 1000);
+  });
+
+  // Show stats
+  setTimeout(() => {
+    const stats = document.getElementById('search-stats');
+    stats.style.transition = 'opacity 0.5s';
+    stats.style.opacity = '1';
+    animateCounter('result-counter', 0, 847, 1500);
+  }, 2000);
+
+  // Show leads
+  ['li1','li2','li3','li4','li5'].forEach((id, i) => {
+    setTimeout(() => document.getElementById(id).classList.add('show'), 3000 + i * 500);
+  });
+}
+
+function animateFootprint() {
+  ['sig1','sig2','sig3','sig4','sig5','sig6'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('show');
+    setTimeout(() => {
+      el.classList.add('show');
+      // Animate bar fill
+      setTimeout(() => {
+        const bar = el.querySelector('.signal-bar-fill');
+        if (bar) bar.style.width = bar.dataset.width;
+      }, 300);
+    }, i * 400);
+  });
+}
+
+function animateMessage() {
+  ['ann1','ann2','ann3','ann4','ann5'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('show');
+    setTimeout(() => el.classList.add('show'), 800 + i * 500);
+  });
+}
+
+function animateAutoStop() {
+  ['sr1','sr2','sr3','sr4','sr5'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('show');
+    setTimeout(() => el.classList.add('show'), i * 400);
+  });
+}
+
+function animateDashboard() {
+  // Counter animations
+  document.querySelectorAll('#scene-dashboard .counter').forEach(el => {
+    const target = parseInt(el.dataset.target);
+    animateCounterEl(el, 0, target, 1500);
+  });
+
+  // Funnel bars
+  document.querySelectorAll('#scene-dashboard .funnel-bar').forEach((bar, i) => {
+    bar.style.height = '0';
+    setTimeout(() => {
+      bar.style.height = bar.dataset.height;
+    }, 500 + i * 100);
+  });
+}
+
+function animateCounter(elId, start, end, duration) {
+  const el = document.getElementById(elId);
+  animateCounterEl(el, start, end, duration);
+}
+
+function animateCounterEl(el, start, end, duration) {
+  const startTime = performance.now();
+  function update(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(start + (end - start) * eased);
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+// ── Keyboard Controls ─────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextScene(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prevScene(); }
+  if (e.key === 'p') togglePlay();
+});
+
+// ── Start ─────────────────────────────────────────────
+updateProgress();
+resetAutoPlay();
+</script>
+</body>
+</html>
