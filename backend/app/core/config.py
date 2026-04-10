@@ -103,6 +103,12 @@ class Settings(BaseSettings):
     # ── Default Sender ─────────────────────────────────────
     DEFAULT_FROM_EMAIL: Optional[str] = None
 
+    # ── CORS ─────────────────────────────────────────────
+    # Comma-separated origins, e.g.:
+    # https://hunteros.app,https://hunter-os-nu.vercel.app
+    # Use * to allow all (dev only).
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
+
     # ══════════════════════════════════════════════════════
     # Phase 11 — Cost Optimization & Data Quality
     # ══════════════════════════════════════════════════════

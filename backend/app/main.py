@@ -155,13 +155,14 @@ app = FastAPI(
 )
 
 # ── CORS (for Next.js frontend) ─────────────────────────
+# Origins are read from CORS_ORIGINS env var (comma-separated).
+# Falls back to localhost for local dev.
+_raw_origins = settings.CORS_ORIGINS or "http://localhost:3000"
+_allow_origins: list[str] = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-    ],
+    allow_origins=_allow_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
